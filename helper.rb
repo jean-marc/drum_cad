@@ -19,6 +19,27 @@ class Geom::Transformation
 
 end
 
+def remove_dimension(m)
+	m.entities.each{|x| 
+		case x.typename
+		when 'Group' 
+			remove_dimension(x)
+		when 'ComponentInstance'
+			remove_dimension(x.definition)
+		when 'DimensionLinear'
+			x.erase!
+		when 'DimensionRadial'
+			x.erase!
+		when 'ConstructionLine'
+			x.erase!
+		when 'ConstructionPoint'
+			x.erase!
+		else
+			#puts x
+		end
+	}
+
+end
 def merge(grp_0,grp_1)
 	#groups have to be exploded first	
 	e=[grp_0.entities.to_a,grp_1.entities.to_a].flatten
@@ -49,10 +70,49 @@ def drum
 	Sketchup.active_model.entities.erase_entities path
 	return drum	
 end
-#digital_drum(285.mm,230.mm,24*Math::PI/180,404.mm,111.6.mm,15*Math::PI/180)
-def digital_drum(sc_x=285.0.mm,sc_y=215.0.mm,sc_angle=24.0*Math::PI/180,kb_x=404.0.mm,kb_y=120.0.mm,kb_angle=12.0*Math::PI/180,stock_width=20.0.mm)
+def p_3(station)
+	w=450.mm
+	d,r=digital_drum_0
+	s_0=station;
+	s_1=s_0.copy
+	s_1.transform!Geom::Transformation.rotation([0,0,0],[0,0,1],180.degrees)
+	s_1.transform!Geom::Transformation.translation([450.mm,0,0])
+	s_0.transform!Geom::Transformation.translation([Drum::Inside_height/2-w, r.y,r.z])
+	s_1.transform!Geom::Transformation.translation([Drum::Inside_height/2-w,-r.y,r.z])
+end
+def digital_drum_0(sc_x=450.mm,sc_y=324.mm,sc_angle=12.degrees,kb_x=450.mm,kb_y=153.mm,kb_angle=5.degrees)
 	d=drum
-	w,reference=wedge(sc_x,sc_y,sc_angle,kb_x,kb_y,kb_angle,stock_width)
+	w,reference=wedge(sc_x,sc_y,sc_angle,kb_x,kb_y,kb_angle)
+	print 'reference:',Math.sqrt(reference.y*reference.y+reference.z*reference.z)*2.54,' mm ',Math.atan(reference.z/reference.y)*180.0/Math::PI," deg\n"
+	r_0,d=intersect(d,w)
+	r_1,d=intersect(d,w.transform!(Geom::Transformation.scaling(1,-1,1)))
+	w.erase!
+	r_1.erase!
+	rr=0.9
+	alpha=Math::PI*0.3
+	p=[0,Math.cos(alpha)*Drum::Radius*rr,Math.sin(alpha)*Drum::Radius*rr]
+	print 'hole:',p.x*25.4,' ',p.y*2.54,' ',p.z*2.54,"\n"
+	w_0=side_wall(r_0,p)
+	w_0.transform! Geom::Transformation.translation([-kb_x,0,0])
+	w_1=w_0.copy
+	w_1.transform!(Geom::Transformation.scaling(1,-1,1))
+	wall=Sketchup.active_model.entities.add_group
+	wall.entities.add_face [0,1,1],[0,1,-1],[0,-1,-1],[0,-1,1]
+	wall.transform! Geom::Transformation.scaling(2*Drum::Radius)
+	ww=200.mm
+	wall.transform! Geom::Transformation.translation([-ww,0,0])
+	d,b=intersect(d,wall)
+	wall.erase!
+	b.erase!
+	d=merge(d,w_0)	
+	d=merge(d,w_1)	
+	#d.transform!Geom::Transformation.rotation([0,0,0],[0,0,1],90.degrees)
+	#reference.transform!Geom::Transformation.rotation([0,0,0],[0,0,1],90.degrees)
+	return d,reference
+end
+def digital_drum(sc_x=285.0.mm,sc_y=215.0.mm,sc_angle=24.degrees,kb_x=404.0.mm,kb_y=120.0.mm,kb_angle=12.degrees,stock_width=20.0.mm)
+	d=drum
+	w,reference=wedge(sc_x+2*stock_width,sc_y+2*stock_width,sc_angle,kb_x+2*stock_width,kb_y+2*stock_width,kb_angle)
 	print 'reference:',Math.sqrt(reference.y*reference.y+reference.z*reference.z)*2.54,' mm ',Math.atan(reference.z/reference.y)*180.0/Math::PI," deg\n"
 	r,d=intersect(d,w)
 	r_1,d=intersect(d,w.transform!(Geom::Transformation.scaling(1,-1,1)))
@@ -238,11 +298,11 @@ def bar
 	return g
 end
 =end
-def wedge(sc_x=285.0.mm,sc_y=215.0.mm,sc_angle=24.0*Math::PI/180,kb_x=405.0.mm,kb_y=120.0.mm,kb_angle=12.0*Math::PI/180,stock_width=20.0.mm)
-	kb_panel_x=(2*stock_width+kb_x)/Drum::Radius #normalized
-	kb_panel_y=(2*stock_width+kb_y)/Drum::Radius #normalized
-	sc_panel_x=(2*stock_width+sc_x)/Drum::Radius #normalized
-	sc_panel_y=(2*stock_width+sc_y)/Drum::Radius #normalized
+def wedge(sc_x=285.0.mm,sc_y=215.0.mm,sc_angle=24.degrees,kb_x=405.0.mm,kb_y=120.0.mm,kb_angle=12.degrees)
+	kb_panel_x=kb_x/Drum::Radius #normalized
+	kb_panel_y=kb_y/Drum::Radius #normalized
+	sc_panel_x=sc_x/Drum::Radius #normalized
+	sc_panel_y=sc_y/Drum::Radius #normalized
 	wedge=Sketchup.active_model.entities.add_group
 	tot_angle=sc_angle+Math::PI/2+kb_angle
 	rope_2=kb_panel_y*kb_panel_y + sc_panel_y*sc_panel_y-2*kb_panel_y*sc_panel_y*Math.cos(tot_angle)
