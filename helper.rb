@@ -1,3 +1,28 @@
+class Sketchup::Group 
+	def translate(p)
+		self.transform! Geom::Transformation.translation(p)
+	end
+	def rotate(a,b,alpha) #a is usually [0,0,0]
+		self.transform! Geom::Transformation.rotation(a,b,alpha)
+	end
+
+end
+class Sketchup::Entities
+	def add_parallel(x,y)
+		x=x/2;y=y/2;
+		#g=add_group
+		#g.entities.add_curve([x,-y,0],[x,y,0],[-x,y,0],[-x,-y,0],[x,-y,0])
+		#return g;
+		return add_face([x,-y,0],[x,y,0],[-x,y,0],[-x,-y,0])
+	end
+	def add_parallelepiped(x,y,z)
+		g=add_group
+		f=g.entities.add_parallel(x,y)
+		f.pushpull z
+		return g
+	end
+
+end
 class Drum
 	Radius=285.mm
 	Inside_height=840.mm
@@ -79,6 +104,66 @@ def p_3(station)
 	s_1.transform!Geom::Transformation.translation([450.mm,0,0])
 	s_0.transform!Geom::Transformation.translation([Drum::Inside_height/2-w, r.y,r.z])
 	s_1.transform!Geom::Transformation.translation([Drum::Inside_height/2-w,-r.y,r.z])
+end
+def p_3_keyboard
+	g=Sketchup.active_model.entities.add_group
+	p=g.entities.add_group
+	_0=p.entities.add_parallel((350+2*30).mm,(108+2*30).mm)
+	_1=p.entities.add_parallel(350.mm,108.mm)
+	p.entities.erase_entities _1
+	#p.material='green'
+	_0.pushpull 3.mm
+	g.entities.add_parallelepiped(360.mm,118.8.mm,17.8.mm).translate([0,0,-3.mm])
+	g.entities.add_parallelepiped(350.mm,108.mm,-3.8.mm).translate([0,0,-3.mm])
+	return g
+end
+def jm_test
+	g=Sketchup.active_model.entities.add_group
+	#g.entities.add_face([0,0,0],[1,0,0],[1,1,0],[0,1,0])
+	camera=g.entities.add_face(g.entities.add_circle([0.5,0.5,0],[0,0,1],0.2))
+	g.entities.add_face([0,0,0],[1,0,0],[1,1,0],[0,1,0])
+	#camera=g.entities.add_face([0,0,0],[0.5,0,0],[0.5,0.5,0],[0,0.5,0])
+	g.entities.erase_entities camera
+	return g
+end
+def p_3_screen
+	g=Sketchup.active_model.entities.add_group
+	p=g.entities.add_group
+	camera=p.entities.add_face(p.entities.add_circle([0,-(228/2+35).mm,0],[0,0,-1],10.mm))
+	_0=p.entities.add_parallel((304+6+50+50).mm,(228+50+50).mm)#6mm correction to match keyboard
+	_1=p.entities.add_parallel((304+6).mm,(228).mm)#6mm correction to match keyboard
+	p.entities.erase_entities _1
+	#info(camera)
+	p.entities.erase_entities camera
+	#p.material='green'
+	_0.pushpull 3.mm
+	screen=g.entities.add_parallelepiped(357.6.mm,300.mm,4.mm).translate([0,0,-3.mm])
+	screen.material='gray'
+	screen.material.alpha=0.5
+	monitor=g.entities.add_group
+	monitor.entities.add_parallel(304.mm,228.mm)
+	monitor.translate([0,0,-3.mm-4.mm])
+	g.entities.add_parallelepiped(53.mm,10.mm,1.mm).translate([-131.mm,(136+5).mm,-3.mm-4.mm])
+	g.entities.add_parallelepiped(53.mm,10.mm,1.mm).translate([+131.mm,(136+5).mm,-3.mm-4.mm])
+	g.entities.add_parallelepiped(310.mm,10.mm,1.mm).translate([0,-(136+5).mm,-3.mm-4.mm])
+	g.entities.add_parallelepiped(357.6.mm,272.mm,19.mm).translate([0,0,-3.mm-4.mm])
+	g.entities.add_parallelepiped(357.6.mm,230.mm,43.mm).translate([0,21.mm,-3.mm-4.mm-19.mm])
+	return g
+end
+def p_3
+	s_alpha=12.degrees;
+	k_alpha=12.degrees;
+	s_x=410.mm
+	s_y=328.mm
+	s_y_offset=30.mm
+	k_x=410.mm
+	k_y=168.mm
+	#k_y=148.mm
+	d,r=digital_drum_0(s_x,s_y-s_y_offset,s_alpha,k_x,k_y,k_alpha)
+	k=p_3_keyboard.translate([k_x/2,k_y/2,0]).rotate([0,0,0],[1,0,0],-k_alpha).translate([Drum::Inside_height/2-k_x,r.y,r.z])
+	s=p_3_screen.translate([s_x/2,s_y_offset-s_y/2,0]).rotate([0,0,0],[1,0,0],s_alpha-90.degrees).translate([Drum::Inside_height/2-s_x,r.y,r.z])
+	k.copy.transform!Geom::Transformation.scaling(1,-1,1)
+	s.copy.transform!Geom::Transformation.scaling(1,-1,1)
 end
 def digital_drum_0(sc_x=450.mm,sc_y=324.mm,sc_angle=12.degrees,kb_x=450.mm,kb_y=153.mm,kb_angle=5.degrees)
 	d=drum
@@ -230,9 +315,17 @@ def side_wall(r,p)
 	r=merge(sp,r)	
 	g=Sketchup.active_model.entities.add_group
 	f=g.entities.add_face(g.entities.add_circle([Drum::Inside_height/2,p.y,p.z],[1,0,0],10.mm/2))	
+	#add holes for USB/Ethernet
+	h_0=g.entities.add_face(g.entities.add_circle([Drum::Inside_height/2,p.y,0.75*p.z],[1,0,0],35.mm/2))	
+	h_1=g.entities.add_face(g.entities.add_circle([Drum::Inside_height/2,p.y,0.50*p.z],[1,0,0],35.mm/2))	
+	h_2=g.entities.add_face(g.entities.add_circle([Drum::Inside_height/2,p.y,0.25*p.z],[1,0,0],35.mm/2))	
 	r=merge(g,r)
 	f.erase!
+	h_0.erase!
+	h_1.erase!
+	h_2.erase!
 	#put bolt for visualization
+
 	return r
 end
 
